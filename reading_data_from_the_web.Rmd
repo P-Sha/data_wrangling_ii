@@ -1,0 +1,226 @@
+---
+title: "reading_data_from_the_web"
+author: "Purnima Sharma"
+date: "10/16/2020"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+
+library(rvest)
+library(httr)  # contains collection of tools for constructing http requests.
+```
+
+##Scrape table
+Load data from the web.
+
+```{r}
+url = "http://samhda.s3-us-gov-west-1.amazonaws.com/s3fs-public/field-uploads/2k15StateFiles/NSDUHsaeShortTermCHG2015.htm"
+
+drug_use_html = read_html(url)   # read html from that link
+
+drug_use_html
+```
+
+Extracting tables from HTML.
+
+```{r}
+drug_use_html %>%
+  html_nodes(css = "table")   # this code extracted all tables!
+```
+
+Extracting first table only.
+
+```{r}
+table_marj = 
+  drug_use_html %>% 
+  html_nodes(css = "table") %>% 
+  first() %>%
+  html_table() 
+```
+
+Remove first row from table(with same NOTe in every column), and converting the table to a df(tibble).
+
+```{r}
+table_marj = 
+  drug_use_html %>% 
+  html_nodes(css = "table") %>% 
+  first() %>% 
+  html_table() %>%
+  slice(-1) %>% 
+  as_tibble()
+
+table_marj
+```
+
+------------------------------------------------------------------------------
+Learning assessment 1: Create a data frame that contains the cost of living table for New York from the webp age.
+
+```{r Load data from the web}
+url = "https://www.bestplaces.net/cost_of_living/city/new_york/new_york"
+cost_of_living_ny_html = read_html(url)
+
+cost_of_living_ny_html 
+```
+
+```{r Extract table from html}
+cost_of_living_ny_html %>%
+  html_nodes(css = "table")  # all tables extracted!
+```
+
+Extracting first table only.
+
+```{r}
+table_ny = 
+  cost_of_living_ny_html %>% 
+  html_nodes(css = "table") %>% 
+  first() %>%
+  html_table() 
+```
+
+Converting to tibble (df).
+
+```{r}
+table_ny = 
+  cost_of_living_ny_html %>% 
+  html_nodes(css = "table") %>% 
+  first() %>%
+  html_table() %>%
+  as_tibble()
+
+table_ny
+```
+OR, code for assessment 1:
+```{r}
+nyc_cost = 
+  read_html("https://www.bestplaces.net/cost_of_living/city/new_york/new_york") %>%
+  html_nodes(css = "table") %>%
+  .[[1]] %>%
+  html_table(header = TRUE)
+```
+End assessment 1 -------------------------------------------------------------
+
+## CSS selectors
+
+Star Wars example: Getting data about the Star Wars Movies from the IMDB page.
+
+```{r load data from the web}
+swm_html = 
+  read_html("https://www.imdb.com/list/ls070150896/")
+```
+
+Not a handy table, so using CSS selector to isolate elements needed.
+For each element, use the CSS selector in html_nodes() to extract the relevant HTML code, and convert it to text. Then combine these into a data frame.
+
+```{r}
+title_vec = 
+  swm_html %>%
+  html_nodes(".lister-item-header a") %>%
+  html_text()
+
+gross_rev_vec = 
+  swm_html %>%
+  html_nodes(".text-small:nth-child(7) span:nth-child(5)") %>%
+  html_text()
+
+runtime_vec = 
+  swm_html %>%
+  html_nodes(".runtime") %>%
+  html_text()
+
+swm_df = 
+  tibble(
+    title = title_vec,
+    rev = gross_rev_vec,
+    runtime = runtime_vec)
+```
+
+----------------------------------------------------------------------------
+Learning Assessment 2: extracting titles of the reviews for "Napoleon Dynamite" from the given website.
+
+```{r load data from the web}
+nd_html = 
+  read_html("https://www.amazon.com/product-reviews/B00005JNBQ/ref=cm_cr_arp_d_viewopt_rvwer?ie=UTF8&reviewerType=avp_only_reviews&sortBy=recent&pageNumber=1")
+```
+
+Extracting titles, stars and text of reviews
+
+```{r}
+review_titles = 
+  nd_html %>%
+  html_nodes(".a-text-bold span") %>%
+  html_text()
+
+review_stars = 
+  nd_html %>%
+  html_nodes(".review-rating") %>%
+  html_text()
+
+review_text = 
+  nd_html %>%
+  html_nodes(".review-text-content span") %>%
+  html_text()
+
+nd_df = 
+  tibble(
+    title = review_titles,
+                           
+    text = review_text 
+  )  ## stars rating not working in the table, it has 12obs and these two have 10obs.
+```
+End Learning assessment 2 ----------------------------------------------------
+
+
+Using API (Application Programming Interface), instead of reading through a website as is:
+
+Example 1
+a dataset for annual water consumption in NYC. import this as a CSV and parse it.
+
+```{r}
+nyc_water = 
+  GET("https://data.cityofnewyork.us/resource/ia2d-e54m.csv") %>% 
+  content("parsed")
+```
+
+Importing this data as a JSON file (A JSON file is a file that stores simple data structures and objects in JavaScript Object Notation (JSON) format, which is a standard data interchange format. It is primarily used for transmitting data between a web application and a server.)
+ Package used: "JSONLITE"
+
+```{r}
+nyc_water = 
+  GET("https://data.cityofnewyork.us/resource/ia2d-e54m.json") %>% 
+  content("text") %>%
+  jsonlite::fromJSON() %>%
+  as_tibble()
+```
+
+Example 2
+Reading data from Data.gov:  selecting data coming from BRFSS. This is importable via the API as a CSV
+
+```{r}
+brfss_smart2010 = 
+  GET("https://chronicdata.cdc.gov/resource/acme-vg9e.csv",  #gets 5000 rows vs default 1000.
+      query = list("$limit" = 5000)) %>% 
+  content("parsed")
+```
+
+
+Example 3
+Reading pokemon API
+
+```{r}
+poke = 
+  GET("http://pokeapi.co/api/v2/pokemon/1") %>%
+  content()
+
+poke$name    #output"bulbasaur"
+poke$height   # output : 7
+poke$abilities
+
+# To build a Pokemon dataset for analysis, you’d need to distill the data returned from the API into a useful format; iterate across all pokemon; and combine the results.
+```
+
+
+
+
+
