@@ -27,7 +27,7 @@ Extracting tables from HTML.
 
 ```{r}
 drug_use_html %>%
-  html_nodes(css = "table")   # this code extracted all tables!
+  html_nodes(css = "table")   # #extract html nodes with particular CSS tag, as table. this code extracted all tables!
 ```
 
 Extracting first table only.
@@ -35,20 +35,20 @@ Extracting first table only.
 ```{r}
 table_marj = 
   drug_use_html %>% 
-  html_nodes(css = "table") %>% 
+  html_nodes(css = "table") %>%  
   first() %>%
-  html_table() 
+  html_table()    # parse out the table from all html
 ```
 
 Remove first row from table(with same NOTe in every column), and converting the table to a df(tibble).
 
 ```{r}
-table_marj = 
+table_marj =    # give it a name to save it as an object
   drug_use_html %>% 
   html_nodes(css = "table") %>% 
   first() %>% 
   html_table() %>%
-  slice(-1) %>% 
+  slice(-1) %>%    #slice away first row.
   as_tibble()
 
 table_marj
@@ -101,7 +101,7 @@ nyc_cost =
 ```
 End assessment 1 -------------------------------------------------------------
 
-## CSS selectors
+## CSS selectors: Extracting non-table collection of data from a website.
 
 Star Wars example: Getting data about the Star Wars Movies from the IMDB page.
 
@@ -117,7 +117,7 @@ For each element, use the CSS selector in html_nodes() to extract the relevant H
 title_vec = 
   swm_html %>%
   html_nodes(".lister-item-header a") %>%
-  html_text()
+  html_text()          # extract just the text of movie titles from html
 
 gross_rev_vec = 
   swm_html %>%
@@ -129,7 +129,7 @@ runtime_vec =
   html_nodes(".runtime") %>%
   html_text()
 
-swm_df = 
+swm_df =     # combine 3 vectors into a star wars movie df
   tibble(
     title = title_vec,
     rev = gross_rev_vec,
@@ -172,7 +172,7 @@ nd_df =
 End Learning assessment 2 ----------------------------------------------------
 
 
-Using API (Application Programming Interface), instead of reading through a website as is:
+Using API (Application Programming Interface), instead of reading through a website as is.
 
 Example 1
 a dataset for annual water consumption in NYC. import this as a CSV and parse it.
@@ -180,7 +180,7 @@ a dataset for annual water consumption in NYC. import this as a CSV and parse it
 ```{r}
 nyc_water = 
   GET("https://data.cityofnewyork.us/resource/ia2d-e54m.csv") %>% 
-  content("parsed")
+  content("parsed")           #content function parses the data into a table.
 ```
 
 Importing this data as a JSON file (A JSON file is a file that stores simple data structures and objects in JavaScript Object Notation (JSON) format, which is a standard data interchange format. It is primarily used for transmitting data between a web application and a server.)
@@ -190,7 +190,7 @@ Importing this data as a JSON file (A JSON file is a file that stores simple dat
 nyc_water = 
   GET("https://data.cityofnewyork.us/resource/ia2d-e54m.json") %>% 
   content("text") %>%
-  jsonlite::fromJSON() %>%
+  jsonlite::fromJSON() %>%   #json file parsed using jsonlite package
   as_tibble()
 ```
 
@@ -199,9 +199,9 @@ Reading data from Data.gov:  selecting data coming from BRFSS. This is importabl
 
 ```{r}
 brfss_smart2010 = 
-  GET("https://chronicdata.cdc.gov/resource/acme-vg9e.csv",  #gets 5000 rows vs default 1000.
-      query = list("$limit" = 5000)) %>% 
-  content("parsed")
+  GET("https://chronicdata.cdc.gov/resource/acme-vg9e.csv",  
+      query = list("$limit" = 5000)) %>% #gets 5000 rows vs default 1000. It was listed on the website that limit was under $limit
+  content("parsed")          # relevant data presented more clearly by parsing.
 ```
 
 
@@ -211,7 +211,7 @@ Reading pokemon API
 ```{r}
 poke = 
   GET("http://pokeapi.co/api/v2/pokemon/1") %>%
-  content()
+  content()        #extract content
 
 poke$name    #output"bulbasaur"
 poke$height   # output : 7

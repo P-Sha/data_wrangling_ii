@@ -1,0 +1,14 @@
+---
+title: "strings_and_factors"
+author: "Purnima Sharma"
+date: "10/17/2020"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+
+library(rvest)
+library(httr)  # contains collection of tools for constructing http requests.
+```
+
