@@ -7,8 +7,307 @@ output: github_document
 
 ```{r setup, include=FALSE}
 library(tidyverse)
-
 library(rvest)
-library(httr)  # contains collection of tools for constructing http requests.
+library(p8105.datasets)
+```
+
+Global settings for themes (for figures).
+```{r}
+knitr::opts_chunk$set(
+  fig.width = 6,
+  fig.asp = .6,          #aspect ratio: height over width
+  out.width = "90%"      # figure doesn't go all the way out on full(100%) page
+)
+theme_set(theme_minimal() + theme(legend.position = "bottom"))
+
+options(
+  ggplot2.continuous.colour = "viridis", # to override ggplot default colors.
+  ggplot2.continuous.fill = "viridis"
+)
+
+scale_colour_discrete = scale_colour_viridis_d
+scale_fill_discrete = scale_fill_viridis_d
+```
+
+
+## strings as vectors.
+
+```{r}
+string_vec = c("my", "name", "is", "purnima")
+str_detect(string_vec, "purnima")           #using detect to find match
+
+str_replace(string_vec, "purnima", "Purnima") #replace matched value.
+```
+
+Designate matches beginning or end of a line.
+
+```{r}
+string_vec = c(
+  "i think we all rule for participating",
+  "i think i have been caught",
+  "i think this will be quite fun actually",
+  "it will be fun, i think"
+  )
+
+str_detect(string_vec, "^i think")   # detect match beginning of line.
+
+str_detect(string_vec, "i think$")  #end of line
+```
+
+LIst of characters as a match.
+
+```{r}
+string_vec = c(
+  "Y'all remember Pres. HW Bush?",
+  "I saw a green bush",
+  "BBQ and Bushwalking at Molonglo Gorge",
+  "BUSH -- LIVE IN CONCERT!!"
+  )
+
+str_detect(string_vec,"[Bb]ush") # match lower case "ush" with any B or b
+```
+
+Provide a range of letters or numbers that count as a match.
+
+```{r}
+string_vec = c(
+  '7th inning stretch',
+  '1st half soon to begin. Texas won the toss.',
+  'she is 5 feet 4 inches tall',
+  '3AM - cant sleep :('
+  )
+
+str_detect(string_vec, "^[0-9][a-zA-Z]") #matching with beginning with these#s
+```
+
+The character . matches anything.
+
+```{r}
+string_vec = c(
+  'Its 7:11 in the evening',
+  'want to go to 7-11?',
+  'my flight is AA711',
+  'NetBios: scanning ip 203.167.114.66'
+  )
+
+str_detect(string_vec, "7.11")  #match 7 "something" eleven. 3rd sentence didn't have "something"
+```
+
+Special characters, [ and ], ( and ), and . are detected using \ .But \ is also special, so use \ twice!
+
+```{r}
+string_vec = c(
+  'The CI is [2, 5]',
+  ':-]',
+  ':-[',
+  'I found the answer on pages [6-7]'
+  )
+
+str_detect(string_vec, "\\[")      
+```
+
+
+## factors
+
+EXAMPLLE 1: NSDUH ( National Survey on Drug Use and Health) data.
+
+```{r reading data from the web}
+nsduh_url = "http://samhda.s3-us-gov-west-1.amazonaws.com/s3fs-public/field-uploads/2k15StateFiles/NSDUHsaeShortTermCHG2015.htm"
+
+table_marj = 
+  read_html(nsduh_url) %>% 
+  html_nodes(css = "table") %>% 
+  first() %>%
+  html_table() %>%
+  slice(-1) %>%
+  as_tibble()
+```
+
+Tidy data.
+
+```{r}
+data_marj = 
+  table_marj %>%
+  select(-contains("P Value")) %>%    # remove p-values
+  pivot_longer( 
+    -State,                          
+    names_to = "age_year",        # fixing the column headers, except state column.   
+    values_to = "percent") %>%
+  separate(age_year, into = c("age", "year"), sep = "\\(") %>%
+  mutate(
+    year = str_replace(year, "\\)", ""),
+    percent = str_replace(percent, "[a-c]$", ""),  #removing letters from table's percent values.
+    percent = as.numeric(percent)) %>%
+  filter(!(State %in% c("Total U.S.", "Northeast", "Midwest", "South", "West")))
+```
+
+Focusing on 12 - 17 age group.
+
+```{r}
+data_marj %>%
+  filter(age == "12-17") %>% 
+  mutate(State = fct_reorder(State, percent)) %>%    # state as factor, and reorder by median percent values. 
+  ggplot(aes(x = State, y = percent, color = year)) + 
+    geom_point() + 
+    theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+End Example 1 --------------------------------------
+
+
+EXAMPLE 2: NYC Restuarant Inspections data.----------
+
+Import data
+
+```{r}
+data("rest_inspec")
+
+rest_inspec %>% 
+  group_by(boro, grade) %>% 
+  summarize(n = n()) %>% 
+  spread(key = grade, value = n)
+```
+
+Remove inspections with scores other than A, B, or C, and remove the restaurants with missing boro information, and clean boro names.
+
+```{r}
+rest_inspec =
+  rest_inspec %>%
+  filter(grade %in% c("A", "B", "C"), boro != "Missing") %>% 
+  mutate(boro = str_to_title(boro))
+```
+
+Focusing on pizza places and reexamining grades by boro.
+
+```{r}
+rest_inspec %>% 
+  filter(str_detect(dba, "Pizza")) %>% 
+  group_by(boro, grade) %>% 
+  summarize(n = n()) %>% 
+  spread(key = grade, value = n)
+```
+
+Above code did not give all the pizza places, since "detect" is case sensitive. Recoding by specifying detect:
+
+```{r}
+rest_inspec %>% 
+  filter(str_detect(dba, "[Pp][Ii][Zz][Zz][Aa]")) %>%  # accept all forms of writing "pizza"
+  group_by(boro, grade) %>% 
+  summarize(n = n()) %>% 
+  spread(key = grade, value = n)
+```
+
+Visualizing above results.
+
+```{r}
+rest_inspec %>% 
+  filter(str_detect(dba, "[Pp][Ii][Zz][Zz][Aa]")) %>%
+  ggplot(aes(x = boro, fill = grade)) +    #fill each bar colors by grades.
+  geom_bar() 
+```
+
+Rearranging bars according to number of pizza places(frequency).
+
+```{r}
+rest_inspec %>% 
+  filter(str_detect(dba, "[Pp][Ii][Zz][Zz][Aa]")) %>%
+  mutate(boro = fct_infreq(boro)) %>%       # arranging boro-bars by frequency, using fct_infreq
+  ggplot(aes(x = boro, fill = grade)) + 
+  geom_bar() 
+```
+
+Renaming a boro.
+
+```{r}
+rest_inspec %>% 
+  filter(str_detect(dba, "[Pp][Ii][Zz][Zz][Aa]")) %>%
+  mutate(
+    boro = fct_infreq(boro),
+    boro = str_replace(boro, "Brooklyn", "HipsterHQ")) %>%  #rename Brooklyn
+  ggplot(aes(x = boro, fill = grade)) + 
+  geom_bar() 
+```
+Renaming like this converted boros back to string and arranged alphabetically on graph.
+
+Code to rename while retaining factor levels:
+
+```{r}
+rest_inspec %>% 
+  filter(str_detect(dba, regex("pizza", ignore_case = TRUE))) %>% # another way to ignore upper/lower case (other than specifying as above)
+  mutate(
+    boro = fct_infreq(boro),
+    boro = fct_recode(boro, "HipsterHQ" = "Brooklyn")) %>%  # recode instead of replace to rename it.
+  ggplot(aes(x = boro, fill = grade)) + 
+  geom_bar()
+```
+End example 2 ----------------------------------
+
+
+Example 3: Weather data ------------------------
+
+```{r load data}
+weather_df = 
+  rnoaa::meteo_pull_monitors(
+    c("USW00094728", "USC00519397", "USS0023B17S"),
+    var = c("PRCP", "TMIN", "TMAX"), 
+    date_min = "2017-01-01",
+    date_max = "2017-12-31") %>%
+  mutate(
+    name = recode(
+      id, 
+      USW00094728 = "CentralPark_NY", 
+      USC00519397 = "Waikiki_HA",
+      USS0023B17S = "Waterhole_WA"),
+    tmin = tmin / 10,
+    tmax = tmax / 10) %>%
+  select(name, id, everything())
+```
+
+Reorder name according to tmax values in each name using fct_reorder:
+
+```{r}
+weather_df %>%
+  mutate(name = forcats::fct_reorder(name, tmax)) %>% 
+  ggplot(aes(x = name, y = tmax)) + 
+  geom_violin(aes(fill = name), color = "blue", alpha = .5) + 
+  theme(legend.position = "bottom")
+```
+End example 3 -----------------------------
+
+
+Example 4: Pulse data (processing using stringr and forcats packages)--------
+
+```{r}           
+pulse_data = 
+  haven::read_sas("./data/public_pulse_data.sas7bdat") %>%
+  janitor::clean_names() %>%
+  pivot_longer(
+    bdi_score_bl:bdi_score_12m,
+    names_to = "visit", 
+    names_prefix = "bdi_score_",
+    values_to = "bdi") %>%
+  select(id, visit, everything()) %>%
+  mutate(
+    visit = str_replace(visit, "bl", "00m"),
+    visit = fct_relevel(visit, str_c(c("00", "01", "06", "12"), "m"))) %>%
+  arrange(id, visit)
+
+print(pulse_data, n = 12)
+```
+End example 4 ---------------------------------
+
+
+Example 5: Air bnb data (using "factors" to order neighborhoods by price) ----
+
+```{r}
+data("nyc_airbnb")
+
+nyc_airbnb %>%
+  filter(neighbourhood_group == "Manhattan") %>% 
+  mutate(
+    neighbourhood = fct_reorder(neighbourhood, price)) %>% 
+  ggplot(aes(x = neighbourhood, y = price)) +
+  geom_boxplot() +
+  coord_flip() + 
+  ylim(0, 1000)
 ```
 
